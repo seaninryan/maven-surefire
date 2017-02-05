@@ -279,22 +279,29 @@ public class ForkClient
                             .warning( createConsoleMessage( remaining ) );
                     break;
                 default:
-                    LostCommandsDumpSingleton.getSingleton().dumpText( s, defaultReporterFactory );
+                    InPluginProcessDumpSingleton.getSingleton().dumpText( s, defaultReporterFactory );
             }
         }
         catch ( NumberFormatException e )
         {
             // SUREFIRE-859
-            LostCommandsDumpSingleton.getSingleton().dumpException( e, s, defaultReporterFactory );
+            InPluginProcessDumpSingleton.getSingleton().dumpException( e, s, defaultReporterFactory );
         }
         catch ( NoSuchElementException e )
         {
             // SUREFIRE-859
-            LostCommandsDumpSingleton.getSingleton().dumpException( e, s, defaultReporterFactory );
+            InPluginProcessDumpSingleton.getSingleton().dumpException( e, s, defaultReporterFactory );
         }
-        catch ( ReporterException e )
+        catch ( IndexOutOfBoundsException e )
         {
-            LostCommandsDumpSingleton.getSingleton().dumpException( e, s, defaultReporterFactory );
+            // native stream sent a text e.g. GC verbose
+            InPluginProcessDumpSingleton.getSingleton().dumpException( e, s, defaultReporterFactory );
+            throw e;
+        }
+        catch ( RuntimeException e )
+        {
+            // e.g. ReporterException
+            InPluginProcessDumpSingleton.getSingleton().dumpException( e, s, defaultReporterFactory );
             throw e;
         }
     }

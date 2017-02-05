@@ -64,51 +64,66 @@ public class Surefire141PluggableProvidersIT
     public void invokeRuntimeException()
         throws Exception
     {
-        unpack( "surefire-141-pluggableproviders" )
+        final String errorText = "Let's fail with a runtimeException";
+
+        OutputValidator validator = unpack( "surefire-141-pluggableproviders" )
             .sysProp( "invokeCrash", "runtimeException" )
             .maven()
             .withFailure()
             .executeTest()
-            .verifyTextInLog( "Let's fail with a runtimeException" );
+            .verifyTextInLog( errorText );
+
+        assertErrorMessage( validator, errorText );
     }
 
     @Test
     public void invokeReporterException()
         throws Exception
     {
-        unpack( "surefire-141-pluggableproviders" )
+        final String errorText = "Let's fail with a reporterexception";
+
+        OutputValidator validator = unpack( "surefire-141-pluggableproviders" )
             .sysProp( "invokeCrash", "reporterException" )
             .maven()
             .withFailure()
             .executeTest()
-            .verifyTextInLog( "Let's fail with a reporterexception" );
+            .verifyTextInLog( errorText );
+
+        assertErrorMessage( validator, errorText );
     }
 
     @Test
     public void constructorRuntimeException()
         throws Exception
     {
+        final String errorText = "Let's fail with a runtimeException";
+
         OutputValidator validator = unpack( "surefire-141-pluggableproviders" )
                                             .sysProp( "constructorCrash", "runtimeException" )
                                             .maven()
                                             .withFailure()
                                             .executeTest()
-                                            .verifyTextInLog( "Let's fail with a runtimeException" );
+                                            .verifyTextInLog( errorText );
 
+        assertErrorMessage( validator, errorText );
+    }
+
+    private static void assertErrorMessage( OutputValidator validator, String message )
+    {
         File reportDir = validator.getSurefireReportsDirectory();
         String[] dumpFiles = reportDir.list( new FilenameFilter()
-                        {
-                            @Override
-                            public boolean accept( File dir, String name )
-                            {
-                                return name.endsWith( ".dump" );
-                            }
-                        });
+                                             {
+                                                 @Override
+                                                 public boolean accept( File dir, String name )
+                                                 {
+                                                     return name.endsWith( ".dump" );
+                                                 }
+                                             });
         assertThat( dumpFiles ).isNotEmpty();
         for ( String dump : dumpFiles )
         {
             validator.getSurefireReportsFile( dump )
-                    .assertContainsText( "Let's fail with a runtimeException" );
+                    .assertContainsText( message );
         }
     }
 
