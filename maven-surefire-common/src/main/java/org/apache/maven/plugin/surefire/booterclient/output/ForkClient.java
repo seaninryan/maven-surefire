@@ -68,6 +68,8 @@ import static org.apache.maven.surefire.util.internal.StringUtils.isNotBlank;
 import static org.apache.maven.surefire.util.internal.StringUtils.unescapeBytes;
 import static org.apache.maven.surefire.util.internal.StringUtils.unescapeString;
 
+// todo move to the same package with ForkStarter
+
 /**
  * Knows how to reconstruct *all* the state transmitted over stdout by the forked process.
  *
@@ -284,17 +286,30 @@ public class ForkClient
         }
         catch ( NumberFormatException e )
         {
+            // native stream sent a text e.g. GC verbose
             // SUREFIRE-859
-            LostCommandsDumpSingleton.getSingleton().dumpException( e, s, defaultReporterFactory );
+            String msg = "Corrupted native stream e.g. GC verbose. Received stream: '" + s + "'.";
+            LostCommandsDumpSingleton.getSingleton().dumpException( e, msg, defaultReporterFactory );
         }
         catch ( NoSuchElementException e )
         {
+            // native stream sent a text e.g. GC verbose
             // SUREFIRE-859
-            LostCommandsDumpSingleton.getSingleton().dumpException( e, s, defaultReporterFactory );
+            String msg = "Corrupted native stream e.g. GC verbose. Received stream: '" + s + "'.";
+            LostCommandsDumpSingleton.getSingleton().dumpException( e, msg, defaultReporterFactory );
         }
-        catch ( ReporterException e )
+        catch ( IndexOutOfBoundsException e )
         {
-            LostCommandsDumpSingleton.getSingleton().dumpException( e, s, defaultReporterFactory );
+            // native stream sent a text e.g. GC verbose
+            String msg = "Corrupted native stream e.g. GC verbose. Received stream: '" + s + "'.";
+            LostCommandsDumpSingleton.getSingleton().dumpException( e, msg, defaultReporterFactory );
+            throw e;
+        }
+        catch ( RuntimeException e )
+        {
+            // e.g. ReporterException
+            String msg = "Possibly reporter failure. Received stream: '" + s + "'.";
+            LostCommandsDumpSingleton.getSingleton().dumpException( e, msg, defaultReporterFactory );
             throw e;
         }
     }
