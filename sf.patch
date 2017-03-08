@@ -1,0 +1,157 @@
+diff --git a/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/ForkConfiguration.java b/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/ForkConfiguration.java
+index fa28eb3..6e224f9 100644
+--- a/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/ForkConfiguration.java
++++ b/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/ForkConfiguration.java
+@@ -307,8 +307,6 @@ private File createJar( List<String> classPath, String startClassName )
+ 
+             man.write( jos );
+ 
+-            jos.closeEntry();
+-            jos.flush();
+         }
+         finally
+         {
+diff --git a/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/ForkStarter.java b/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/ForkStarter.java
+index 6f623ba..1744f40 100644
+--- a/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/ForkStarter.java
++++ b/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/ForkStarter.java
+@@ -644,14 +644,6 @@ else if ( result != SUCCESS )
+         }
+         finally
+         {
+-            try
+-            {
+-                Thread.sleep( 1000 );
+-            }
+-            catch ( InterruptedException e )
+-            {
+-                e.printStackTrace();
+-            }
+             closer.close();
+             if ( runResult == null )
+             {
+diff --git a/pom.xml b/pom.xml
+index e2c698f..3374c4c 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -216,7 +216,7 @@
+       <dependency>
+         <groupId>org.apache.maven.shared</groupId>
+         <artifactId>maven-shared-utils</artifactId>
+-        <version>0.9.1-SNAPSHOT</version>
++        <version>0.9</version>
+       </dependency>
+       <dependency>
+         <groupId>org.apache.maven.shared</groupId>
+diff --git a/surefire-api/src/main/java/org/apache/maven/surefire/booter/CommandReader.java b/surefire-api/src/main/java/org/apache/maven/surefire/booter/CommandReader.java
+index d7fd900..f3062c0 100644
+--- a/surefire-api/src/main/java/org/apache/maven/surefire/booter/CommandReader.java
++++ b/surefire-api/src/main/java/org/apache/maven/surefire/booter/CommandReader.java
+@@ -336,11 +336,7 @@ private void popUnread()
+         private void requestNextTest()
+         {
+             byte[] encoded = encodeStringForForkCommunication( ( (char) BOOTERCODE_NEXT_TEST ) + ",0,want more!\n" );
+-            synchronized ( originalOutStream )
+-            {
+-                originalOutStream.write( encoded, 0, encoded.length );
+-                originalOutStream.flush();
+-            }
++            originalOutStream.write( encoded, 0, encoded.length );
+         }
+ 
+         private boolean shouldFinish()
+diff --git a/surefire-api/src/main/java/org/apache/maven/surefire/booter/ForkingRunListener.java b/surefire-api/src/main/java/org/apache/maven/surefire/booter/ForkingRunListener.java
+index 7856dac..1216502 100644
+--- a/surefire-api/src/main/java/org/apache/maven/surefire/booter/ForkingRunListener.java
++++ b/surefire-api/src/main/java/org/apache/maven/surefire/booter/ForkingRunListener.java
+@@ -206,7 +206,6 @@ public void writeTestOutput( byte[] buf, int off, int len, boolean stdout )
+         synchronized ( target ) // See notes about synchronization/thread safety in class javadoc
+         {
+             target.write( encodeBytes, 0, encodeBytes.length );
+-            target.flush();
+             if ( target.checkError() )
+             {
+                 // We MUST NOT throw any exception from this method; otherwise we are in loop and CPU goes up:
+@@ -276,7 +275,6 @@ private void encodeAndWriteToTarget( String string )
+         synchronized ( target ) // See notes about synchronization/thread safety in class javadoc
+         {
+             target.write( encodeBytes, 0, encodeBytes.length );
+-            target.flush();
+             if ( target.checkError() )
+             {
+                 // We MUST NOT throw any exception from this method; otherwise we are in loop and CPU goes up:
+diff --git a/surefire-booter/src/main/java/org/apache/maven/surefire/booter/ForkedBooter.java b/surefire-booter/src/main/java/org/apache/maven/surefire/booter/ForkedBooter.java
+index c94848a..85fd63d 100644
+--- a/surefire-booter/src/main/java/org/apache/maven/surefire/booter/ForkedBooter.java
++++ b/surefire-booter/src/main/java/org/apache/maven/surefire/booter/ForkedBooter.java
+@@ -103,7 +103,6 @@
+     public static void main( String... args ) throws Exception
+     {
+         //LOG.info( "ForkedBooter.main() :: Forked JVM started." );
+-        Thread.sleep( 3000L );
+         final CommandReader reader = startupMasterProcessReader();
+         final ScheduledFuture<?> pingScheduler = listenToShutdownCommands( reader );
+         final PrintStream originalOut = out;
+@@ -177,7 +176,8 @@ else if ( readTestsFromInputStream )
+             }
+             // Say bye.
+             encodeAndWriteToOutput( ( (char) BOOTERCODE_BYE ) + ",0,BYE!\n", originalOut );
+-            // noinspection CallToSystemExit
++            originalOut.flush();
++	    // noinspection CallToSystemExit
+             exit( 0, EXIT, reader, false );
+         }
+         catch ( Throwable t )
+@@ -254,11 +254,7 @@ public void run()
+     private static void encodeAndWriteToOutput( String string, PrintStream out )
+     {
+         byte[] encodeBytes = encodeStringForForkCommunication( string );
+-        synchronized ( out )
+-        {
+-            out.write( encodeBytes, 0, encodeBytes.length );
+-            out.flush();
+-        }
++        out.write( encodeBytes, 0, encodeBytes.length );
+     }
+ 
+     private static void exit( int returnCode, Shutdown shutdownType, CommandReader reader, boolean stopReaderOnExit )
+@@ -273,17 +269,6 @@ private static void exit( int returnCode, Shutdown shutdownType, CommandReader r
+                     reader.stop();
+                 }
+                 launchLastDitchDaemonShutdownThread( returnCode );
+-                try
+-                {
+-                    // on FreeBSD the std/out is FileOutputStream.
+-                    // it looks like the ThreadedStreamConsumer has not time to read out all data because process
+-                    // was closed faster. No shared memory between processes.
+-                    Thread.sleep( 1000 );
+-                }
+-                catch ( InterruptedException e )
+-                {
+-                    e.printStackTrace();
+-                }
+                 System.exit( returnCode );
+             case DEFAULT:
+                 // refers to shutdown=testset, but not used now, keeping reader open
+@@ -316,7 +301,7 @@ private static ScheduledExecutorService createJvmTerminator()
+                                                             + systemExitTimeoutInSeconds
+                                                             + "s" );
+         ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor( 1, threadFactory );
+-        executor.setMaximumPoolSize( 2 );
++        executor.setMaximumPoolSize( 1 );
+         executor.prestartCoreThread();
+         return executor;
+     }
+diff --git a/surefire-integration-tests/pom.xml b/surefire-integration-tests/pom.xml
+index 6d5b03f..7a1e693 100644
+--- a/surefire-integration-tests/pom.xml
++++ b/surefire-integration-tests/pom.xml
+@@ -99,7 +99,7 @@
+           <forkMode>never</forkMode>
+           <argLine>${argLine}</argLine>
+           <includes>
+-            <include>org/apache/**/ForkModeIT.java</include>
++            <include>org/apache/**/ForkMode*IT.java</include>
+           </includes>
+           <!-- Pass current surefire version to the main suite so that it -->
+           <!-- can forward to all integration test projects. SUREFIRE-513 -->

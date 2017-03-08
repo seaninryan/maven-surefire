@@ -206,7 +206,6 @@ public class ForkingRunListener
         synchronized ( target ) // See notes about synchronization/thread safety in class javadoc
         {
             target.write( encodeBytes, 0, encodeBytes.length );
-            target.flush();
             if ( target.checkError() )
             {
                 // We MUST NOT throw any exception from this method; otherwise we are in loop and CPU goes up:
@@ -276,7 +275,6 @@ public class ForkingRunListener
         synchronized ( target ) // See notes about synchronization/thread safety in class javadoc
         {
             target.write( encodeBytes, 0, encodeBytes.length );
-            target.flush();
             if ( target.checkError() )
             {
                 // We MUST NOT throw any exception from this method; otherwise we are in loop and CPU goes up:

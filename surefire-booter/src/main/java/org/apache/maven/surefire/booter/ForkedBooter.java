@@ -103,7 +103,6 @@ public final class ForkedBooter
     public static void main( String... args ) throws Exception
     {
         //LOG.info( "ForkedBooter.main() :: Forked JVM started." );
-        Thread.sleep( 3000L );
         final CommandReader reader = startupMasterProcessReader();
         final ScheduledFuture<?> pingScheduler = listenToShutdownCommands( reader );
         final PrintStream originalOut = out;
@@ -177,7 +176,8 @@ public final class ForkedBooter
             }
             // Say bye.
             encodeAndWriteToOutput( ( (char) BOOTERCODE_BYE ) + ",0,BYE!\n", originalOut );
-            // noinspection CallToSystemExit
+            originalOut.flush();
+	    // noinspection CallToSystemExit
             exit( 0, EXIT, reader, false );
         }
         catch ( Throwable t )
@@ -254,11 +254,7 @@ public final class ForkedBooter
     private static void encodeAndWriteToOutput( String string, PrintStream out )
     {
         byte[] encodeBytes = encodeStringForForkCommunication( string );
-        synchronized ( out )
-        {
-            out.write( encodeBytes, 0, encodeBytes.length );
-            out.flush();
-        }
+        out.write( encodeBytes, 0, encodeBytes.length );
     }
 
     private static void exit( int returnCode, Shutdown shutdownType, CommandReader reader, boolean stopReaderOnExit )
@@ -273,17 +269,6 @@ public final class ForkedBooter
                     reader.stop();
                 }
                 launchLastDitchDaemonShutdownThread( returnCode );
-                try
-                {
-                    // on FreeBSD the std/out is FileOutputStream.
-                    // it looks like the ThreadedStreamConsumer has not time to read out all data because process
-                    // was closed faster. No shared memory between processes.
-                    Thread.sleep( 1000 );
-                }
-                catch ( InterruptedException e )
-                {
-                    e.printStackTrace();
-                }
                 System.exit( returnCode );
             case DEFAULT:
                 // refers to shutdown=testset, but not used now, keeping reader open
@@ -316,7 +301,7 @@ public final class ForkedBooter
                                                             + systemExitTimeoutInSeconds
                                                             + "s" );
         ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor( 1, threadFactory );
-        executor.setMaximumPoolSize( 2 );
+        executor.setMaximumPoolSize( 1 );
         executor.prestartCoreThread();
         return executor;
     }

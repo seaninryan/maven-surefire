@@ -307,8 +307,6 @@ public class ForkConfiguration
 
             man.write( jos );
 
-            jos.closeEntry();
-            jos.flush();
         }
         finally
         {
