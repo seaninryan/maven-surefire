@@ -116,7 +116,7 @@ public class ForkStarter
 {
     private static final String EXECUTION_EXCEPTION = "ExecutionException";
 
-    private static final long PING_IN_SECONDS = 10;
+    private static final long PING_IN_SECONDS = 1L;
 
     private static final int TIMEOUT_CHECK_PERIOD_MILLIS = 100;
 

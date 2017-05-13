@@ -19,8 +19,6 @@ package org.apache.maven.surefire.booter;
  * under the License.
  */
 
-import org.apache.maven.plugin.surefire.log.api.ConsoleLogger;
-import org.apache.maven.plugin.surefire.log.api.NullConsoleLogger;
 import org.apache.maven.surefire.testset.TestSetFailedException;
 
 import java.io.DataInputStream;
@@ -53,7 +51,6 @@ import static org.apache.maven.surefire.util.internal.DaemonThreadFactory.newDae
 import static org.apache.maven.surefire.util.internal.StringUtils.encodeStringForForkCommunication;
 import static org.apache.maven.surefire.util.internal.StringUtils.isBlank;
 import static org.apache.maven.surefire.util.internal.StringUtils.isNotBlank;
-import static org.apache.maven.surefire.util.internal.ObjectUtils.requireNonNull;
 
 /**
  * Reader of commands coming from plugin(master) process.
@@ -84,8 +81,6 @@ public final class CommandReader
 
     private int iteratedCount;
 
-    private volatile ConsoleLogger logger = new NullConsoleLogger();
-
     private CommandReader()
     {
     }
@@ -103,12 +98,6 @@ public final class CommandReader
     public CommandReader setShutdown( Shutdown shutdown )
     {
         this.shutdown = shutdown;
-        return this;
-    }
-
-    public CommandReader setLogger( ConsoleLogger logger )
-    {
-        this.logger = requireNonNull( logger, "null logger" );
         return this;
     }
 
@@ -393,7 +382,6 @@ public final class CommandReader
                     {
                         String errorMessage = "[SUREFIRE] std/in stream corrupted: first sequence not recognized";
                         DumpErrorSingleton.getSingleton().dumpStreamText( errorMessage );
-                        logger.error( errorMessage );
                         break;
                     }
                     else
@@ -449,7 +437,6 @@ public final class CommandReader
                 {
                     String msg = "[SUREFIRE] std/in stream corrupted";
                     DumpErrorSingleton.getSingleton().dumpStreamException( e, msg );
-                    logger.error( msg, e );
                 }
             }
             finally

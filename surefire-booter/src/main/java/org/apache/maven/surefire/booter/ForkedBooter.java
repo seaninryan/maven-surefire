@@ -33,6 +33,9 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.MemoryUsage;
+import java.lang.management.RuntimeMXBean;
 import java.lang.reflect.InvocationTargetException;
 import java.security.AccessControlException;
 import java.security.AccessController;
@@ -42,7 +45,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.lang.Math.max;
 import static java.lang.System.err;
@@ -73,9 +76,16 @@ import static org.apache.maven.surefire.util.internal.StringUtils.encodeStringFo
  */
 public final class ForkedBooter
 {
+    private static final long MAX_MEM_PING = 4096L * 1024L * 1024L;
+    private static final long MIN_MEM_PING = 512L * 1024L * 1024L;
+    private static final double MIN_MEM_PING_TIME = 2d * 10d * 1000d / 7d;
+    private static final double MIN_PING_TIME = 10d * 1000d;
+    private static final double MAX_PING_TIME = 60d * 1000d;
     private static final long DEFAULT_SYSTEM_EXIT_TIMEOUT_IN_SECONDS = 30;
     private static final long PING_TIMEOUT_IN_SECONDS = 20;
     private static final long ONE_SECOND_IN_MILLIS = 1000;
+    private static final RuntimeMXBean JMX_RUNTIME = ManagementFactory.getRuntimeMXBean();
+    private static final MemoryMXBean JMX_MEM = ManagementFactory.getMemoryMXBean();
 
     private static volatile ScheduledThreadPoolExecutor jvmTerminator;
     private static volatile long systemExitTimeoutInSeconds = DEFAULT_SYSTEM_EXIT_TIMEOUT_IN_SECONDS;
@@ -97,7 +107,7 @@ public final class ForkedBooter
             final String dumpFileName = args[1];
             final String surefirePropsFileName = args[2];
 
-            BooterDeserializer booterDeserializer =
+            final BooterDeserializer booterDeserializer =
                     new BooterDeserializer( createSurefirePropertiesIfFileExists( tmpDir, surefirePropsFileName ) );
             if ( args.length > 3 )
             {
@@ -205,22 +215,22 @@ public final class ForkedBooter
     private static ExecutorService listenToShutdownCommands( CommandReader reader )
     {
         reader.addShutdownListener( createExitHandler() );
-        AtomicBoolean pingDone = new AtomicBoolean( true );
-        reader.addNoopListener( createPingHandler( pingDone ) );
-        Runnable pingJob = createPingJob( pingDone );
+        AtomicLong pingUptime = new AtomicLong( JMX_RUNTIME.getUptime() );
+        reader.addNoopListener( createPingHandler( pingUptime ) );
+        Runnable pingJob = createPingJob( pingUptime );
         ScheduledExecutorService pingScheduler = createPingScheduler();
         pingScheduler.scheduleAtFixedRate( pingJob, 0, PING_TIMEOUT_IN_SECONDS, SECONDS );
         return pingScheduler;
     }
 
-    private static CommandListener createPingHandler( final AtomicBoolean pingDone )
+    private static CommandListener createPingHandler( final AtomicLong pingUptime )
     {
         return new CommandListener()
         {
             @Override
             public void update( Command command )
             {
-                pingDone.set( true );
+                pingUptime.set( JMX_RUNTIME.getUptime() );
             }
         };
     }
@@ -246,15 +256,14 @@ public final class ForkedBooter
         };
     }
 
-    private static Runnable createPingJob( final AtomicBoolean pingDone  )
+    private static Runnable createPingJob( final AtomicLong pingUptime  )
     {
         return new Runnable()
         {
             @Override
             public void run()
             {
-                boolean hasPing = pingDone.getAndSet( false );
-                if ( !hasPing )
+                if ( isMasterProcessIdle( pingUptime.get(), JMX_MEM ) )
                 {
                     kill();
                 }
@@ -402,8 +411,8 @@ public final class ForkedBooter
 
     private static SurefireProvider createProviderInCurrentClassloader( StartupConfiguration startupConfiguration,
                                                                         boolean isInsideFork,
-                                                                       ProviderConfiguration providerConfiguration,
-                                                                       Object reporterManagerFactory )
+                                                                        ProviderConfiguration providerConfiguration,
+                                                                        Object reporterManagerFactory )
     {
         BaseProviderFactory bpf = new BaseProviderFactory( (ReporterFactory) reporterManagerFactory, isInsideFork );
         bpf.setTestRequest( providerConfiguration.getTestSuiteDefinition() );
@@ -431,7 +440,7 @@ public final class ForkedBooter
 
     private static boolean isDebugging()
     {
-        for ( String argument : ManagementFactory.getRuntimeMXBean().getInputArguments() )
+        for ( String argument : JMX_RUNTIME.getInputArguments() )
         {
             if ( "-Xdebug".equals( argument ) || argument.startsWith( "-agentlib:jdwp" ) )
             {
@@ -439,5 +448,24 @@ public final class ForkedBooter
             }
         }
         return false;
+    }
+
+    static boolean isMasterProcessIdle( long previousUptimeMillis, MemoryMXBean memoryMXBean )
+    {
+        MemoryUsage heap = memoryMXBean.getHeapMemoryUsage();
+        long committedHeap = heap.getCommitted();
+        return isMasterProcessIdle( previousUptimeMillis, committedHeap );
+    }
+
+    static boolean isMasterProcessIdle( long previousUptimeMillis, long committedHeap )
+    {
+        long currentUptimeMillis = JMX_RUNTIME.getUptime();
+
+        double idleTimeMillis = currentUptimeMillis - previousUptimeMillis;
+
+        double idleTimeMillisToKillJvm =
+                ( MAX_PING_TIME - MIN_PING_TIME ) / ( MAX_MEM_PING - MIN_MEM_PING ) * committedHeap + MIN_MEM_PING_TIME;
+
+        return idleTimeMillis > max( idleTimeMillisToKillJvm, MIN_PING_TIME );
     }
 }
