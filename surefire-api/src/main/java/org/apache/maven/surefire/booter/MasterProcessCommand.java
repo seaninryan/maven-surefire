@@ -85,11 +85,14 @@ public enum MasterProcessCommand
         }
 
         byte[] dataBytes = fromDataType( data );
-        byte[] encoded = new byte[8 + dataBytes.length];
-        int command = getId();
         int len = dataBytes.length;
+
+        byte[] encoded = new byte[8 + len];
+
+        int command = getId();
         setCommandAndDataLength( command, len, encoded );
-        System.arraycopy( dataBytes, 0, encoded, 8, dataBytes.length );
+        System.arraycopy( dataBytes, 0, encoded, 8, len );
+
         return encoded;
     }
 
