@@ -57,15 +57,13 @@ public final class SurefireHelper
     public static final String DUMPSTREAM_FILENAME_FORMATTER = DUMP_FILE_PREFIX + "%d" + DUMPSTREAM_FILE_EXT;
 
     /**
-     * see sun/nio/fs/WindowsPath <br>
+     * The maximum path that does not require long path prefix on Windows.<p>
+     * see sun/nio/fs/WindowsPath
      * http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/7534523b4174/src/windows/classes/sun/nio/fs/WindowsPath.java#l46
-     * https://msdn.microsoft.com/en-us/library/aa365247(VS.85).aspx#maxpath
-     * <br>
-     * <br>
-     * The maximum path that does not require long path prefix. On Windows <br>
-     * the maximum path is 260 minus 1 (NUL) but for directories it is 260 <br>
-     * minus 12 minus 1 (to allow for the creation of a 8.3 file in the <br>
-     * directory).
+     * <br>and https://msdn.microsoft.com/en-us/library/aa365247(VS.85).aspx#maxpath
+     * <p>
+     * The maximum path is 260 minus 1 (NUL) but for directories it is 260
+     * minus 12 minus 1 (to allow for the creation of a 8.3 file in the directory).
      */
     private static final int MAX_PATH_LENGTH_WINDOWS = 247;
 
@@ -180,11 +178,13 @@ public final class SurefireHelper
     }
 
     /**
-     * Normalized file path for Windows; otherwise returns {@code path}.
-     * <br>
+     * Escape file path for Windows when the path is too long; otherwise returns {@code path}.
+     * <p>See <a href="
      * http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/7534523b4174/src/windows/classes/sun/nio/fs/WindowsPath.java#l46
-     * <br>
-     * https://msdn.microsoft.com/en-us/library/aa365247(VS.85).aspx#maxpath
+     * ">sun/nio/fs/WindowsPath</a> for "long path" value explanation (=247), and 
+     * <a href="https://msdn.microsoft.com/en-us/library/aa365247(VS.85).aspx#maxpath">MSDN article</a>
+     * for detailed escaping strategy explanation: in short, {@code \\?\} prefix for path with drive letter
+     * or {@code \\?\UNC\} for UNC path
      *
      * @param path    source path
      * @return escaped to platform path
